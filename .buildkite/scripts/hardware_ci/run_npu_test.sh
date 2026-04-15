@@ -1,14 +1,20 @@
 #!/bin/bash
 
-# This script build the Ascend NPU docker image and run the offline inference inside the container.
-# It serves a sanity check for compilation and basic model usage.
+# This script builds the Ascend NPU docker image and runs tests inside the container.
+# Usage: bash run_npu_test.sh [TEST_CMD]
+#   TEST_CMD: optional test command (default: runs Qwen2.5-Omni offline inference)
+# Environment variables:
+#   NPU_BASE_IMAGE: override base Docker image
 set -ex
+
+# Test command: use $1 if provided, otherwise default
+DEFAULT_TEST_CMD='VLLM_USE_MODELSCOPE=True pytest -s -v tests/e2e/offline_inference/test_qwen2_5_omni.py'
+TEST_CMD="${1:-${DEFAULT_TEST_CMD}}"
 
 # Base ubuntu image with basic ascend development libraries and python installed
 VLLM_OMNI_REPO="https://github.com/vllm-project/vllm-omni.git"
-BASE_IMAGE_NAME="quay.nju.edu.cn/ascend/vllm-ascend:v0.11.0rc2"
+BASE_IMAGE_NAME="${NPU_BASE_IMAGE:-quay.nju.edu.cn/ascend/vllm-ascend:v0.11.0rc2}"
 image_name="npu/vllm-omni-ci:${BUILDKITE_COMMIT}_${EPOCHSECONDS}"
-# image_name="npu/vllm-ci:${BUILDKITE_COMMIT}_${EPOCHSECONDS}"
 container_name="npu_${BUILDKITE_COMMIT}_$(tr -dc A-Za-z0-9 < /dev/urandom | head -c 10; echo)"
 
 # BUILDKITE_AGENT_NAME format is {hostname}-{agent_idx}-{npu_card_num}cards
@@ -22,7 +28,7 @@ mkdir -p ${builder_cache_dir}
 cat <<EOF | DOCKER_BUILDKIT=1 docker build \
     --add-host pypi-cache:${PYPI_CACHE_HOST} \
     --builder ${builder_name} --cache-from type=local,src=${builder_cache_dir} \
-                           --cache-to type=local,dest=${builder_cache_dir},mode=max \
+                               --cache-to type=local,dest=${builder_cache_dir},mode=max \
     --build-arg BUILDKITE_PULL_REQUEST="${BUILDKITE_PULL_REQUEST}" \
     --build-arg BUILDKITE_PULL_REQUEST_REPO="${BUILDKITE_PULL_REQUEST_REPO}" \
     --progress=plain --load -t ${image_name} -f - .
@@ -39,8 +45,9 @@ RUN pip config set global.index-url http://pypi-cache:${PYPI_CACHE_PORT}/pypi/si
     rm -rf /var/lib/apt/lists/*
 
 # Install for pytest to make the docker build cache layer always valid
+# FIX: Added --break-system-packages to bypass PEP 668 protection
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install pytest>=6.0  pytest-cov modelscope
+    pip install --break-system-packages pytest>=6.0  pytest-cov modelscope
 
 COPY . .
 
@@ -63,11 +70,12 @@ RUN git config --global url."https://gh-proxy.test.osinfra.cn/https://github.com
     fi
 
 RUN --mount=type=cache,target=/root/.cache/pip \
+    # FIX: Added --break-system-packages here as well for the main install
     export PIP_EXTRA_INDEX_URL=https://mirrors.huaweicloud.com/ascend/repos/pypi && \
     source /usr/local/Ascend/ascend-toolkit/set_env.sh && \
     source /usr/local/Ascend/nnal/atb/set_env.sh && \
-    export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/`uname -i`-linux/devlib && \
-    python3 -m pip install -v -e /workspace/vllm-omni/
+    export LD_LIBRARY_PATH=\$LD_LIBRARY_PATH:/usr/local/Ascend/ascend-toolkit/latest/\`uname -i\`-linux/devlib && \
+    python3 -m pip install --break-system-packages -v -e /workspace/vllm-omni/
 
 ENV VLLM_WORKER_MULTIPROC_METHOD=spawn
 
@@ -115,9 +123,7 @@ parse_and_gen_devices() {
 
 devices=$(parse_and_gen_devices "${BUILDKITE_AGENT_NAME}") || exit 1
 
-# Run the image and execute the Out-Of-Tree (OOT) platform interface test case on Ascend NPU hardware.
-# This test checks whether the OOT platform interface is functioning properly in conjunction with
-# the hardware plugin vllm-ascend.
+# Run the image and execute tests on Ascend NPU hardware.
 hf_model_cache_dir=/mnt/hf_cache${agent_idx}
 ms_model_cache_dir=/mnt/modelscope${agent_idx}
 mkdir -p ${hf_model_cache_dir}
@@ -139,7 +145,7 @@ docker run \
     --entrypoint="" \
     --name "${container_name}" \
     "${image_name}" \
-    bash -c '
+    bash -c "
     set -e
-    VLLM_USE_MODELSCOPE=True pytest -s -v tests/e2e/offline_inference/test_qwen2_5_omni.py
-'
+    ${TEST_CMD}
+"
