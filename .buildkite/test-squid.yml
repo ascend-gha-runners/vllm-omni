@@ -1,0 +1,18 @@
+# squid 注入冒烟流水线（opt-in）
+#
+# 用途：在 gy-006 的 vllm-omni aarch64 a2b3 Buildkite runner 上验证 squid 注入
+# 是否真的生效（代理 env / MITM CA / 缓存收益）。代理由部署仓
+# other/ascend-gha-runners/vllm-omni/linux-aarch64-a2b3-gy006/values.yaml
+# 通过 pod-spec-patch 注入，脚本内不配置任何代理——流量必须来自环境注入。
+#
+# 触发方式（二选一）：
+#   1) 在 Buildkite 上新建 pipeline 指向本文件；
+#   2) 现有 pipeline 的 build 里设置环境变量 SQUID_SMOKE=1，
+#      由 .buildkite/pipeline.yml 里的 opt-in step 上传本文件。
+steps:
+  - label: ":squid: squid 注入冒烟（gy-006 aarch64 a2b3）"
+    agents:
+      queue: "linux-aarch64-a2b3-gy006-test"
+    commands:
+      - bash .buildkite/scripts/squid_agent_smoke.sh
+    timeout_in_minutes: 20

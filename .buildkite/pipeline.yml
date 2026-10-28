@@ -38,3 +38,14 @@ steps:
       - buildkite-agent pipeline upload .buildkite/test-nightly.yml
     agents:
       queue: "cpu_queue_premerge"
+
+  # squid 注入冒烟（opt-in，不影响日常 CI 判定）
+  # 设置 SQUID_SMOKE=1 时才在 gy-006 vllm-omni aarch64 队列上跑
+  # .buildkite/test-squid.yml，验证代理 env / MITM CA / 缓存收益。
+  - label: ":squid: Upload squid smoke Pipeline"
+    key: upload-squid-smoke
+    if: build.env("SQUID_SMOKE") == "1"
+    commands:
+      - buildkite-agent pipeline upload .buildkite/test-squid.yml
+    agents:
+      queue: "cpu_queue_premerge"
