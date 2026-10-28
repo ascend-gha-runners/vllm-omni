@@ -5,10 +5,11 @@
 # other/ascend-gha-runners/vllm-omni/linux-aarch64-a2b3-gy006/values.yaml
 # 通过 pod-spec-patch 注入，脚本内不配置任何代理——流量必须来自环境注入。
 #
-# 触发方式（二选一）：
-#   1) 在 Buildkite 上新建 pipeline 指向本文件；
-#   2) 现有 pipeline 的 build 里设置环境变量 SQUID_SMOKE=1，
-#      由 .buildkite/pipeline.yml 里的 opt-in step 上传本文件。
+# 触发方式：在 Buildkite 上新建一条 pipeline，YAML path 指向本文件
+# （Repository 需为本仓库；agent 队列 linux-aarch64-a2b3-gy006-test 由部署仓
+#  other/ascend-gha-runners/vllm-omni/linux-aarch64-a2b3-gy006 注册）。
+# 不走 .buildkite/pipeline.yml 的 AWS 上传步骤——那条 pipeline 跑在
+# cpu_queue_premerge，与本文件要验证的 gy-006 队列无关。
 steps:
   - label: ":squid: squid 注入冒烟（gy-006 aarch64 a2b3）"
     agents:
