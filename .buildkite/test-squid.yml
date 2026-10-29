@@ -16,10 +16,7 @@
 #      busybox wget 经 squid 必报 "Resource temporarily unavailable"，已知实现缺陷）
 #   2) 指定真实镜像 → Ubuntu 基底 + GNU wget，等于上游 vllm-omni NPU CI 的镜像面
 #
-# SUITE_REF：套件仓库克隆的分支。验证未合并的套件 PR 时指向该 PR 分支，
-# 合并后置回 main（或删掉此 env 走默认 main）。
-env:
-  SUITE_REF: "skip-busybox-wget"
+# 套件源码默认取 main；需要验证未合并的套件 PR 时，用 env SUITE_REF 指向该分支。
 steps:
   - label: ":squid: 套件 · runner 镜像（alpine）"
     agents:
