@@ -2,11 +2,14 @@
 # 在 gy-006 的 Buildkite agent pod 里跑 squid 主套件
 # （等价于 .github/workflows/test-squid.yaml 的各 job）。
 #
-# 与 test-squid.yaml 的差别只有两点：
-#   1) 套件仓库克隆走集群内 git-cdn —— gy-006 直连 github.com 会被中途切断
-#      （SSL_read: eof / 130s 超时），postStart 的 insteadOf 只覆盖 github.com 前缀。
-#   2) 结果落 sfs 共享盘 —— container-0 里没有 buildkite-agent 二进制，传不了
-#      Buildkite artifacts；TSV 同时打到日志，跑完可从 /root/.cache 取原始证据。
+# 与 test-squid.yaml 的差别只有一点：结果落 sfs 共享盘 —— container-0 里没有
+# buildkite-agent 二进制，传不了 Buildkite artifacts；TSV 同时打到日志，跑完可
+# 从 /root/.cache 取原始证据。
+#
+# 套件仓库用 github 原址克隆即可：gy-006 的 pod postStart 已配
+#   url."http://git-cdn-service.../".insteadOf "https://github.com/"
+# （见部署仓 other/ascend-gha-runners/vllm-omni/linux-aarch64-a2b3-gy006/values.yaml），
+# 实际仍走集群内 git-cdn，脚本不硬编码内网地址。
 #
 # 关键前提：这里【不配置任何代理】。HTTP(S)_PROXY / NO_PROXY / CA 信任变量
 # 都由部署仓 other/ascend-gha-runners/vllm-omni/linux-aarch64-a2b3-gy006/values.yaml
@@ -24,7 +27,7 @@
 #   RESULTS_ROOT    结果根目录（默认 /root/.cache/squid-suite，落在共享盘）
 set -uo pipefail
 
-SUITE_REPO_URL="${SUITE_REPO_URL:-http://git-cdn-service.git-cdn.svc.cluster.local:8000/ascend-gha-runners/squid-gha-integration-test.git}"
+SUITE_REPO_URL="${SUITE_REPO_URL:-https://github.com/ascend-gha-runners/squid-gha-integration-test.git}"
 SUITE_DIR="${SUITE_DIR:-/tmp/squid-suite-src}"
 SUITE_REF="${SUITE_REF:-main}"
 RESULTS_ROOT="${RESULTS_ROOT:-/root/.cache/squid-suite}"
