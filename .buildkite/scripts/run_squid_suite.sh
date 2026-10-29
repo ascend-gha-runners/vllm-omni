@@ -59,6 +59,16 @@ for mode in "${MODES[@]}"; do
         echo "⚠️ 没有产出 timings.tsv（$RESULTS_DIR）"
     fi
 
+    # 失败时把各阶段日志尾部打进构建日志：container-0 没有 artifact 通道，
+    # 而套件默认只打印判定行，真实报错（如 wget 的 TLS/CONNECT 错误）在 .log 里。
+    if [ "$rc" -ne 0 ]; then
+        for f in "$RESULTS_DIR"/*/*.log; do
+            [ -f "$f" ] || continue
+            echo "--- 日志尾部：$(basename "$f")"
+            tail -n 15 "$f" | sed 's/^/    | /'
+        done
+    fi
+
     if [ "$rc" -ne 0 ]; then
         echo "❌ 模式 $mode 非零退出（rc=$rc）"
         rc_total=1
