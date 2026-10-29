@@ -19,21 +19,23 @@
 #
 # 可覆盖环境变量：
 #   SUITE_REPO_URL  套件仓库地址（默认集群内 git-cdn）
+#   SUITE_REF       套件分支/标签（默认 main；验证未合并的套件 PR 时指向该分支）
 #   SUITE_DIR       克隆落地目录
 #   RESULTS_ROOT    结果根目录（默认 /root/.cache/squid-suite，落在共享盘）
 set -uo pipefail
 
 SUITE_REPO_URL="${SUITE_REPO_URL:-http://git-cdn-service.git-cdn.svc.cluster.local:8000/ascend-gha-runners/squid-gha-integration-test.git}"
 SUITE_DIR="${SUITE_DIR:-/tmp/squid-suite-src}"
+SUITE_REF="${SUITE_REF:-main}"
 RESULTS_ROOT="${RESULTS_ROOT:-/root/.cache/squid-suite}"
 
 MODES=("$@")
 [ "${#MODES[@]}" -eq 0 ] && MODES=(function)
 
 echo "### 准备：克隆套件仓库"
-echo "repo=${SUITE_REPO_URL}"
+echo "repo=${SUITE_REPO_URL} ref=${SUITE_REF}"
 rm -rf "$SUITE_DIR"
-if ! git clone --depth 1 "$SUITE_REPO_URL" "$SUITE_DIR"; then
+if ! git clone --depth 1 --branch "$SUITE_REF" "$SUITE_REPO_URL" "$SUITE_DIR"; then
     echo "❌ 克隆失败，检查 git-cdn 是否可达（该域应在 NO_PROXY 里直连）"
     exit 1
 fi
